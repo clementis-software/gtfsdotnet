@@ -1,56 +1,38 @@
-name: Release NuGet
+name: Publish NuGet
 
 on:
   push:
-    tags:
-      - 'v*.*'  # Trigger only on tags like v1.2
-      
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
 defaults:
   run:
     shell: pwsh
 
 jobs:
-  build-and-release:
-    runs-on: ubuntu-24.04
+  build:
+
+    runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout the repository
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      # 2. Setup .NET SDK
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: 9.0.x  # Use .NET 9 SDK
-
-      # 3. Restore dependencies
-      - name: Restore dependencies
-        run: dotnet restore ./src/GtfsDotNet/GtfsDotNet.csproj
-
-      # 4. Build the project
-      - name: Build
-        run: dotnet build ./src/GtfsDotNet/GtfsDotNet.csproj --configuration Release --no-restore
-
-      # 5. Pack the NuGet package
-      - name: Pack
-        run: |
-          # Use the tag as version directly (v1.2 → 1.2)
-          VERSION="${GITHUB_REF_NAME#v}"
-          
-          dotnet pack ./src/GtfsDotNet/GtfsDotNet.csproj \
-            --configuration Release \
-            --output ./nupkg \
-            /p:PackageVersion=$VERSION
-
-      # 6. Publish to NuGet.org
-      - name: Push to NuGet
-        uses: nuget/setup-nuget@v1
-        with:
-          nuget-api-key: ${{ secrets.NUGET_API_KEY }}
-
-      - name: Push package
-        run: |
-        foreach($file in (Get-ChildItem "nupkg" -Recurse -Include *.nupkg)) {
+    - uses: actions/checkout@v4
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 9.0.x
+    - name: Restore dependencies
+      run: |
+        cd src/GtfsDotNet
+        dotnet restore
+    - name: Build solution and generate NuGet package
+      run: |  
+        cd src/GtfsDotNet
+        dotnet build -c Release
+        dotnet pack -c Release -o out
+    - name: Publish nuget
+      run: |
+        cd src/GtfsDotNet
+        foreach($file in (Get-ChildItem "out" -Recurse -Include *.nupkg)) {
             dotnet nuget push $file --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
         }
