@@ -10,7 +10,7 @@
     <Description>Read GTFS (General Transit Feed Specification) data</Description>
     <PackageProjectUrl>https://github.com/clementis-software/gtfsdotnet</PackageProjectUrl>
     <RepositoryUrl>https://github.com/clementis-software/gtfsdotnet</RepositoryUrl>
-    <PackageReadmeFile>../README.md</PackageReadmeFile>
+    <PackageReadmeFile>../../README.md</PackageReadmeFile>
   </PropertyGroup>
 
 </Project>
