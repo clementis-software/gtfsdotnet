@@ -4,6 +4,10 @@ on:
   push:
     tags:
       - 'v*.*'  # Trigger only on tags like v1.2
+      
+defaults:
+  run:
+    shell: pwsh
 
 jobs:
   build-and-release:
@@ -47,6 +51,6 @@ jobs:
 
       - name: Push package
         run: |
-        foreach($file in (Get-ChildItem "src" -Recurse -Include *.nupkg)) {
+        foreach($file in (Get-ChildItem "nupkg" -Recurse -Include *.nupkg)) {
             dotnet nuget push $file --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
         }
