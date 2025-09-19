@@ -16,7 +16,7 @@
 You can install the NuGet package:
 
 ```bash
-dotnet add package GtfsDotNet --version 0.2
+dotnet add package GtfsDotNet --version 0.3
 ```
 
 ## Usage
