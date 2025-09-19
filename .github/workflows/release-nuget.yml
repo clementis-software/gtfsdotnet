@@ -46,6 +46,7 @@ jobs:
           nuget-api-key: ${{ secrets.NUGET_API_KEY }}
 
       - name: Push package
-        run: dotnet nuget push ./nupkg/*.nupkg \
-          --api-key ${{ secrets.NUGET_API_KEY }} \
-          --source https://api.nuget.org/v3/index.json
+        run: |
+        foreach($file in (Get-ChildItem "src" -Recurse -Include *.nupkg)) {
+            dotnet nuget push $file --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
+        }
