@@ -4,6 +4,13 @@
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <Title>GTFS.NET</Title>
+    <Authors>clementis Software Solutions e.U.</Authors>
+    <Company>clementis Software Solutions e.U.</Company>
+    <Description>Read GTFS (General Transit Feed Specification) data</Description>
+    <PackageProjectUrl>https://github.com/clementis-software/gtfsdotnet</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/clementis-software/gtfsdotnet</RepositoryUrl>
+    <PackageReadmeFile>../README.md</PackageReadmeFile>
   </PropertyGroup>
 
 </Project>

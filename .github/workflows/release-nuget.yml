@@ -1,0 +1,51 @@
+name: Release NuGet
+
+on:
+  push:
+    tags:
+      - 'v*.*'  # Trigger only on tags like v1.2
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 2. Setup .NET SDK
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 9.0.x  # Use .NET 9 SDK
+
+      # 3. Restore dependencies
+      - name: Restore dependencies
+        run: dotnet restore ./src/GtfsDotNet/GtfsDotNet.csproj
+
+      # 4. Build the project
+      - name: Build
+        run: dotnet build ./src/GtfsDotNet/GtfsDotNet.csproj --configuration Release --no-restore
+
+      # 5. Pack the NuGet package
+      - name: Pack
+        run: |
+          # Use the tag as version directly (v1.2 → 1.2)
+          VERSION="${GITHUB_REF_NAME#v}"
+          
+          dotnet pack ./src/GtfsDotNet/GtfsDotNet.csproj \
+            --configuration Release \
+            --output ./nupkg \
+            /p:PackageVersion=$VERSION
+
+      # 6. Publish to NuGet.org
+      - name: Push to NuGet
+        uses: nuget/setup-nuget@v1
+        with:
+          nuget-api-key: ${{ secrets.NUGET_API_KEY }}
+
+      - name: Push package
+        run: dotnet nuget push ./nupkg/*.nupkg \
+          --api-key ${{ secrets.NUGET_API_KEY }} \
+          --source https://api.nuget.org/v3/index.json

@@ -92,23 +92,6 @@ namespace GtfsDotNet.Validation
                         if (!headers.Contains(expected))
                             fileResult.MissingColumns.Add(expected);
                     }
-
-                    // Optional: check each row for simple sanity
-                    int rowIndex = 1;
-                    while (!reader.EndOfStream)
-                    {
-                        var line = reader.ReadLine();
-                        if (string.IsNullOrWhiteSpace(line))
-                        {
-                            rowIndex++;
-                            continue;
-                        }
-
-                        var values = line.Split(',');
-                        if (values.Length < expectedColumns.Count)
-                            fileResult.RowErrors.Add($"Row {rowIndex}: fewer columns than expected.");
-                        rowIndex++;
-                    }
                 }
 
                 return fileResult;
