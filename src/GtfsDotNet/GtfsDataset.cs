@@ -1,120 +1,100 @@
-﻿using System;
+﻿using GtfsDotNet.Attributes;
+using GtfsDotNet.Model;
+using System;
 using System.Collections.Generic;
-using System.IO;
-using System.IO.Compression;
-using System.Linq;
-using System.Threading.Tasks;
+using System.Reflection;
+using System.Text;
 
 namespace GtfsDotNet
 {
     public class GtfsDataset
     {
-        private readonly Dictionary<GtfsFileType, ZipArchiveEntry> _entries;
+        public List<Agency> Agencies { get; } = new();
+        public List<Area> Areas { get; } = new();
+        public List<Stop> Stops { get; } = new();
+        public List<BookingRule> BookingRules { get; } = new();
+        public List<Calendar> Calendars { get; } = new();
+        public List<CalendarDate> CalendarDates { get; } = new();
+        public List<Fare> Fares { get; } = new();
+        public List<RiderCategory> RiderCategories { get; } = new();
+        public List<FareLegRule> FareLegRules { get; } = new();
+        public List<FareLegJoinRule> FareLegJoinRules { get; } = new();
+        public List<FareMedia> FareMedias { get; } = new();
+        public List<FareProduct> FareProducts { get; } = new();
+        public List<Route> Routes { get; } = new();
+        public List<FareRule> FareRules { get; } = new();
+        public List<Shape> Shapes { get; } = new();
+        public List<Trip> Trips { get; } = new();
+        public List<FareTransferRule> FareTransferRules { get; } = new();
+        public List<FeedInfo> FeedInfos { get; } = new();
+        public List<Frequency> Frequencys { get; } = new();
+        public List<Level> Levels { get; } = new();
+        public List<LocationGroup> LocationGroups { get; } = new();
+        public List<LocationGroupStop> LocationGroupStops { get; } = new();
+        public List<Network> Networks { get; } = new();
+        public List<Pathway> Pathways { get; } = new();
+        public List<RouteNetwork> RouteNetworks { get; } = new();
+        public List<StopArea> StopAreas { get; } = new();
+        public List<StopTime> StopTimes { get; } = new();
+        public List<Timeframe> Timeframes { get; } = new();
+        public List<Transfer> Transfers { get; } = new();
 
-        // Required files according to GTFS specification
-        public static readonly GtfsFileType[] RequiredFiles = new[]
+        public async Task ReadDataset(GtfsFeedArchive archive)
         {
-            GtfsFileType.Agency,
-            GtfsFileType.Stops,
-            GtfsFileType.Routes,
-            GtfsFileType.Trips,
-            GtfsFileType.StopTimes,
-            GtfsFileType.Calendar,
-            GtfsFileType.CalendarDates
-        };
+            var allGtfsDataItemTypes = typeof(GtfsDataItem).Assembly.GetTypes().Where(x => typeof(GtfsDataItem).IsAssignableFrom(x));
 
-        public GtfsDataset(Stream zipStream)
-        {
-            var archive = new ZipArchive(zipStream, ZipArchiveMode.Read, leaveOpen: true);
-            _entries = new Dictionary<GtfsFileType, ZipArchiveEntry>();
-
-            foreach (var entry in archive.Entries)
+            foreach (var type in allGtfsDataItemTypes)
             {
-                var fileType = MapFileNameToType(entry.Name);
-                if (fileType.HasValue)
-                    _entries[fileType.Value] = entry;
+                var gtfsFileAttribute = type.GetCustomAttribute<GtfsFileAttribute>();
+                if (gtfsFileAttribute == null)
+                    continue;
+
+                var fileType = GtfsFeedArchive.MapFileNameToType(gtfsFileAttribute.Filename);
+
+                if (fileType.HasValue && archive.HasFile(fileType.Value))
+                {
+                    var readMethod = typeof(GtfsFeedArchive)
+                        .GetMethod(nameof(GtfsFeedArchive.ReadFullFileAsync))
+                        ?.MakeGenericMethod(type);
+
+                    if (readMethod != null)
+                    {
+                        var task = (Task)readMethod.Invoke(archive, new object[] { fileType.Value });
+                        await task.ConfigureAwait(false);
+
+                        var resultProperty = task.GetType().GetProperty("Result");
+                        var items = resultProperty?.GetValue(task) as IEnumerable<GtfsDataItem>;
+
+                        if (items != null)
+                        {
+                            FillDatasetList(type, items);
+                        }
+                    }
+                }
             }
         }
 
-        /// <summary>
-        /// Check if a specific GTFS file exists in the feed
-        /// </summary>
-        public bool HasFile(GtfsFileType fileType)
+        private void FillDatasetList(Type type, IEnumerable<GtfsDataItem> items)
         {
-            return _entries.ContainsKey(fileType);
-        }
+            var listProperty = this.GetType()
+                .GetProperties()
+                .FirstOrDefault(p => p.PropertyType.IsGenericType &&
+                                     p.PropertyType.GetGenericArguments()[0] == type);
 
-        /// <summary>
-        /// Check if all required GTFS files are present
-        /// </summary>
-        public bool HasAllRequiredFiles()
-        {
-            return RequiredFiles.All(HasFile);
-        }
-
-        /// <summary>
-        /// Reads a GTFS file into the corresponding type
-        /// </summary>
-        public async Task ReadFileAsync<TData>(GtfsFileType fileType, Func<IEnumerable<TData>, Task> processBatchFunc, int batchSize = 1024)
-            where TData : GtfsDataItem, new()
-        {
-            if (!_entries.TryGetValue(fileType, out var entry))
-                throw new FileNotFoundException($"GTFS file '{fileType}' not found in feed.");
-
-            using var stream = entry.Open();
-            var reader = new GtfsDataReader<TData>();
-            await reader.ReadDataAsync(stream, processBatchFunc, batchSize);
-        }
-
-        internal async Task<string[]> ReadHeadersAsync<TData>(GtfsFileType fileType)
-            where TData : GtfsDataItem, new()
-        {
-            if (!_entries.TryGetValue(fileType, out var entry))
-                throw new FileNotFoundException($"GTFS file '{fileType}' not found in feed.");
-
-            using var stream = entry.Open();
-            var reader = new GtfsDataReader<TData>();
-            return await reader.ReadHeadersAsync(stream);
-        }
-
-        /// <summary>
-        /// Maps a file name in the zip archive to a GtfsFileType enum
-        /// </summary>
-        private static GtfsFileType? MapFileNameToType(string fileName)
-        {
-            return fileName switch
+            if (listProperty != null)
             {
-                "agency.txt" => GtfsFileType.Agency,
-                "stops.txt" => GtfsFileType.Stops,
-                "routes.txt" => GtfsFileType.Routes,
-                "trips.txt" => GtfsFileType.Trips,
-                "stop_times.txt" => GtfsFileType.StopTimes,
-                "calendar.txt" => GtfsFileType.Calendar,
-                "calendar_dates.txt" => GtfsFileType.CalendarDates,
-                "frequencies.txt" => GtfsFileType.Frequencies,
-                "transfers.txt" => GtfsFileType.Transfers,
-                "shapes.txt" => GtfsFileType.Shapes,
-                "levels.txt" => GtfsFileType.Levels,
-                "feed_info.txt" => GtfsFileType.FeedInfo,
-                "pathways.txt" => GtfsFileType.Pathways,
-                "booking_rules.txt" => GtfsFileType.BookingRules,
-                "fare_attributes.txt" => GtfsFileType.FareAttributes,
-                "fare_rules.txt" => GtfsFileType.FareRules,
-                "fare_products.txt" => GtfsFileType.FareProducts,
-                "fare_media.txt" => GtfsFileType.FareMedia,
-                "fare_leg_rules.txt" => GtfsFileType.FareLegRules,
-                "fare_leg_join_rules.txt" => GtfsFileType.FareLegJoinRules,
-                "fare_transfer_rules.txt" => GtfsFileType.FareTransferRules,
-                "areas.txt" => GtfsFileType.Areas,
-                "stop_areas.txt" => GtfsFileType.StopAreas,
-                "networks.txt" => GtfsFileType.Networks,
-                "route_networks.txt" => GtfsFileType.RouteNetworks,
-                "location_groups.txt" => GtfsFileType.LocationGroups,
-                "location_group_stops.txt" => GtfsFileType.LocationGroupStops,
-                "locations.geojson" => GtfsFileType.LocationsGeoJson,
-                "translations.txt" => GtfsFileType.Translations,
-                _ => null
-            };
+                var list = listProperty.GetValue(this);
+
+                (list as System.Collections.IList)?.Clear();
+
+                var addRangeMethod = list.GetType().GetMethod("AddRange");
+                addRangeMethod?.Invoke(list, new object[] { items });
+            }
+        }
+
+        private void ResolveAll(IEnumerable<GtfsDataItem> list)
+        {
+            GtfsDataItemResolver.ResolveDataItems(this, list);
         }
     }
 }

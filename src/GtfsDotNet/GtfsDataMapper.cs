@@ -8,12 +8,13 @@ using System.Threading.Tasks;
 
 namespace GtfsDotNet
 {
-    internal class GtfsDataMapper<TDataItem>
+    internal class GtfsDataMapper
     {
-        public GtfsDataMapper()
+        public GtfsDataMapper(Type gtfsDataItemType)
         {
-            Type type = typeof(TDataItem);
-            Mappings = type.GetProperties()
+            var properties = gtfsDataItemType.GetProperties();
+
+            Mappings = properties 
                 .Where (x => x.GetMethod != null && x.SetMethod != null)
                 .Select(x => new
                     {
@@ -22,8 +23,12 @@ namespace GtfsDotNet
                     })
                 .Where(x => x.GtfsPropertyAttribute?.PropertyName != null)
                 .ToDictionary(x => x.GtfsPropertyAttribute.PropertyName, x => x.PropertyInfo);
+
+            IdProperty = properties.FirstOrDefault(x => x.GetCustomAttribute<GtfsIdAttribute>() != null)    ;
         }
 
         public Dictionary<string, PropertyInfo> Mappings { get; }
+
+        public PropertyInfo? IdProperty { get; }
     }
 }

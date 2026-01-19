@@ -6,7 +6,7 @@ namespace GtfsDotNet
 {
     public class GtfsDataReader<TData> where TData : GtfsDataItem, new ()
     {
-        public async Task ReadDataAsync(Stream inputStream, Func<IEnumerable<TData>, Task> processBatchFunc, int batchSize = 1024)
+        public async Task ReadDataAsync(GtfsFeedArchive archive, Stream inputStream, Func<IEnumerable<TData>, Task> processBatchFunc, int batchSize = 1024, CancellationToken cancellationToken = default)
         {
             using var streamReader = new StreamReader(inputStream, Encoding.UTF8);
 
@@ -15,14 +15,15 @@ namespace GtfsDotNet
             string headerLine = streamReader.ReadLine();
             var headers = ParseCsvLine(headerLine);
 
-            var mapper = new GtfsDataMapper<TData>();
+            var mapper = new GtfsDataMapper(typeof(TData));
             List<TData> buffer = new List<TData>();
 
-            while (!streamReader.EndOfStream)
+            while (!streamReader.EndOfStream && !cancellationToken.IsCancellationRequested)
             {
                 string line = streamReader.ReadLine();
                 var values = ParseCsvLine(line);
                 TData obj = new TData();
+                obj.Dataset = archive;
 
                 for (int i = 0; i < headers.Count; i++)
                 {
@@ -38,6 +39,9 @@ namespace GtfsDotNet
 
                     object? converted = ConvertValue(raw, prop.PropertyType);
                     prop.SetValue(obj, converted);
+
+                    if (mapper.IdProperty != null && mapper.IdProperty == prop)
+                        obj.Id = raw;
                 }
 
                 buffer.Add(obj);
@@ -69,6 +73,9 @@ namespace GtfsDotNet
 
             var underlying = Nullable.GetUnderlyingType(targetType) ?? targetType;
 
+            if (string.IsNullOrEmpty(raw))
+                return null;
+
             if (underlying.IsEnum)
             {
                 if (int.TryParse(raw, out int enumValue))
@@ -87,7 +94,11 @@ namespace GtfsDotNet
                 return DateTime.ParseExact(raw, "yyyyMMdd", CultureInfo.InvariantCulture);
 
             if (underlying == typeof(TimeSpan))
-                return TimeSpan.Parse(raw, CultureInfo.InvariantCulture);
+                return TimeSpan.ParseExact(
+                    raw,
+                    @"hh\:mm\:ss",
+                    CultureInfo.InvariantCulture
+                );
 
             if (underlying == typeof(bool))
                 return raw == "1" || raw.Equals("true", StringComparison.OrdinalIgnoreCase);

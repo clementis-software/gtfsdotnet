@@ -6,8 +6,10 @@ using System.Threading.Tasks;
 
 namespace GtfsDotNet
 {
-    public class GtfsDataItem
+    public abstract class GtfsDataItem
     {
+        internal GtfsFeedArchive Dataset { get; set; }
 
+        internal string? Id { get; set; }
     }
 }

@@ -31,7 +31,7 @@ namespace GtfsDotNet.Validation
                 var result = new GtfsValidationResult();
 
                 // 1. Check required files
-                foreach (var required in GtfsDataset.RequiredFiles)
+                foreach (var required in GtfsFeedArchive.RequiredFiles)
                 {
                     if (!_archive.Entries.Any(e => MapFileTypeToFileName(required).Equals(e.Name, StringComparison.Ordinal)))
                         result.MissingRequiredFiles.Add(required);
