@@ -94,11 +94,7 @@ namespace GtfsDotNet
                 return DateTime.ParseExact(raw, "yyyyMMdd", CultureInfo.InvariantCulture);
 
             if (underlying == typeof(TimeSpan))
-                return TimeSpan.ParseExact(
-                    raw,
-                    @"hh\:mm\:ss",
-                    CultureInfo.InvariantCulture
-                );
+                return GtfsTimespan.ParseGtfsTimespan(raw);
 
             if (underlying == typeof(bool))
                 return raw == "1" || raw.Equals("true", StringComparison.OrdinalIgnoreCase);
