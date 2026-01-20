@@ -12,6 +12,6 @@ namespace GtfsDotNet.Attributes
             IdPropertyName = idPropertyName;
         }
 
-        internal string IdPropertyName { get; }
+        public string IdPropertyName { get; }
     }
 }
